@@ -1,16 +1,17 @@
 require 'csv'
 require 'open3'
-require 'sql-parser'
 require 'csv'
-
+require 'sql-parser'
 class CSQL
-  def initialize()
+  def initialize(filepath)
     @parser = SQLParser::Parser.new
+    @filepath = filepath
   end
 
   def execute query
     begin
-      result,err,process = Open3.capture3("q -H -d \',\' \'#{query}\'")
+      modified_query = query.gsub(/csvfile/, @filepath)
+      result,err,process = Open3.capture3("q -H -d \',\' \'#{modified_query}\'")
       if err != ""
         raise CSQLException.new(err)
       end
@@ -19,8 +20,7 @@ class CSQL
     column = ast.query_expression.list.to_sql
     columns = nil
     if column == "*"
-      table = ast.query_expression.table_expression.from_clause.to_sql
-      columns = CSV.table(table).headers.map(&:to_s)
+      columns = CSV.table(@filepath).headers.map(&:to_s)
     else
       columns = column.chomp.split(',').map{|c|c.chomp}
     end
@@ -39,4 +39,4 @@ end
 class CSQLException < Exception
 end
 
-p CSQL.new.execute 'select * from test.csv'
+p CSQL.new('./test.csv').execute 'select * from csvfile'
